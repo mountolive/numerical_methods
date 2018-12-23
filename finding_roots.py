@@ -38,17 +38,24 @@ class NumericalMethod:
             a, b, c = self._critical_points_muller(func, xl, xm, xr)
             row = [xr, xm, xl, a, b, c, err]
             x1, x2 = self._quadratic_roots(a, b, c)
-            if type(x1) is complex or type(x2) is complex:
+            complex_1 = type(x1) is complex
+            complex_2 = type(x2) is complex
+            if complex_1 and complex_2:
                 self.csv_rows.append(row)
                 print('Stopped by complex root!')
                 break
-            if abs(func(x1)) < tolerance:
+            elif not complex_1 and abs(func(x1)) < tolerance:
                 self._refactor_list(x1, row, a, b, c, tolerance)
                 break
-            elif abs(func(x2)) < tolerance:
+            elif not complex_2 and abs(func(x2)) < tolerance:
                 self._refactor_list(x1, row, a, b, c, tolerance)
                 break
-            root = min(x1, x2)
+            elif complex_1:
+                root = x2
+            elif complex_2:
+                root = x1
+            else:
+                root = min(x1, x2)
             xl, xr = self._new_roots(root, xl, xm, xr)
             err = abs(xl - xr)
             row.append(err)
