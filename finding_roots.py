@@ -9,9 +9,9 @@ class NumericalMethod:
     '''
 
     def __init__(self):
-        self.csv_rows = []
+        self.iterations = []
 
-    def bisection(self, func, xl=0.1, xr=56.0, tolerance=1e-2):
+    def bisection(self, func, xl=0.1, xr=56.0, tolerance=1e-2, n=1000):
         self._clean_list()
         err = 1
         i = 0
@@ -28,11 +28,18 @@ class NumericalMethod:
             i += 1
             err = abs(xl - xr)
             row.append(err)
-            self.csv_rows.append(row)
+            self.iterations.append(row)
+            i += 1
+            if i > n:
+                print('Max number of iteration hit. Method unsuccessful')
+                break
+        return xl
 
-    def muller(self, func, xl=0.1, xr=56.0, tolerance=1e-2):
+    def muller(self, func, xl=0.1, xr=56.0, tolerance=1e-2, n=1000):
+        # TODO: needs to be fixed
         self._clean_list()
         err = 1
+        i = 0
         while err > tolerance:
             xm = (xl + xr) / 2.0
             a, b, c = self._critical_points_muller(func, xl, xm, xr)
@@ -41,7 +48,7 @@ class NumericalMethod:
             complex_1 = type(x1) is complex
             complex_2 = type(x2) is complex
             if complex_1 and complex_2:
-                self.csv_rows.append(row)
+                self.iterations.append(row)
                 print('Stopped by complex root!')
                 break
             elif not complex_1 and abs(func(x1)) < tolerance:
@@ -56,26 +63,85 @@ class NumericalMethod:
                 root = x1
             else:
                 root = min(x1, x2)
-            xl, xr = self._new_roots(root, xl, xm, xr)
+            xl, xm, xr = self._new_roots(root, xl, xm, xr)
+            print(xl, xm, xr)
             err = abs(xl - xr)
             row.append(err)
-            self.csv_rows.append(row)
+            self.iterations.append(row)
+            i += 1
+            if i > n:
+                print('Max number of iteration hit. Method unsuccessful')
+                break
+        return xl
+
+    def regula_falsi(self, func, xl=0.1, xr=56.0, tolerance=1e-2, n=1000):
+        err = 1
+        i = 0
+        while err > tolerance:
+            yr = func(xr)
+            yl = func(xl)
+            row = [xl, xr, yl, yr]
+            xprime = self._regula_root(func, xl, xr)
+            yprime = func(xprime)
+            if not self._same_sign(yprime, yr):
+                xl = xprime
+            elif not self._same_sign(yprime, yl):
+                xr = xprime
+            else:
+                print('Found same sign interval, breaking')
+                break
+            err = abs(xr - xl)
+            row.append(err)
+            self.iterations.append(row)
+            i += 1
+            if i > n:
+                print('Max number of iteration hit. Method unsuccessful')
+                break
+        return xl
 
     def print_csv(self, name, method='bisection'):
         with open(name, 'w') as csvfile:
             writer = csv.writer(csvfile)
             if method == 'bisection':
-                writer.writerow(['iteration', 'Xleft', 'Xright', 'f(Xl)', 'f(Xr)', 'f(mid)',
+                writer.writerow(['iteration', 'Xleft', 'Xright', 'f(Xl)', 'f(Xr)', 'f(mid)', 'Xmid'
                                  'tolerance'])
             elif method == 'muller':
                 writer.writerow(['iteration', 'Xleft', 'Xmid', 'Xright', 'a', 'b', 'c', 'tolerance'])
+            elif method == 'regula':
+                writer.writerow(['iteration', 'Xleft', 'Xright', 'f(Xl)', 'f(Xr)', 'tolerance'])
             else:
                 raise Exception('Method passed not available')
-            for i, row in enumerate(self.csv_rows):
+            for i, row in enumerate(self.iterations):
                 row = [i] + row
                 writer.writerow(row)
 
-    def _critical_points_muller(self, func, xl, xm, xr):
+    def formated_print(self, method='bisection'):
+        header = ' {:^19s} |'
+        rows = ' {:^19} |'
+        if method == 'bisection':
+            header *= 8
+            rows *= 8
+            print(header.format('iteration', 'Xleft', 'Xright', 'f(Xl)', 'f(Xr)', 'f(mid)', 'Xmid',
+                                'tolerance'))
+        elif method == 'regula':
+            header *= 6
+            rows *= 6
+            print(header.format('iteration', 'Xleft', 'Xright', 'f(Xl)', 'f(Xr)', 'tolerance'))
+        else:
+            header *= 8
+            rows *= 8
+            print(header.format('iteration', 'Xleft', 'Xmid', 'Xright', 'a', 'b', 'c', 'tolerance'))
+        for i, row in enumerate(self.iterations):
+            print(rows.format(*([i] + row)))
+
+    @staticmethod
+    def _regula_root(func, xl, xr):
+        yr = func(xr)
+        yl = func(xl)
+        return (xl * yr - xr * yl) / (yr - yl)
+
+    @staticmethod
+    def _critical_points_muller(func, xl, xm, xr):
         ul = xl - xm
         ur = xr - xm
         fr = func(xr)
@@ -86,39 +152,44 @@ class NumericalMethod:
         c = fm
         return a, b, c
 
-    def _quadratic_roots(self, a, b, c):
-        root_1 = (-b + (b * b - 4*a*c)**(1/2)) / (2 * a)
-        root_2 = (-b - (b * b - 4*a*c)**(1/2)) / (2 * a)
+    @staticmethod
+    def _quadratic_roots(a, b, c):
+        root_1 = (-b + (b**2 - 4*a*c)**0.5) / (2 * a)
+        root_2 = (-b - (b**2 - 4*a*c)**0.5) / (2 * a)
         return root_1, root_2
 
-    def _new_roots(self, root, xl, xm, xr):
-        order = sorted([abs(root - xl), abs(root - xm), abs(root - xr)])[:-1]
-        return (elem for elem in order)
+    @staticmethod
+    def _new_roots(root, xl, xm, xr):
+        roots = [xl, xm, xr]
+        roots.sort(key=lambda x: abs(root - x))
+        roots = (roots[:-1] + [root])
+        roots.sort()
+        return (elem for elem in roots)
 
     def _refactor_list(self, root, row, a, b, c, tolerance):
-        self.csv_rows.append(row)
+        self.iterations.append(row)
         xl = xr = xm = root
         row = [xr, xm, xl, a, b, c, tolerance]
-        self.csv_rows.append(row)
+        self.iterations.append(row)
 
     def _clean_list(self):
-        self.csv_rows = []
+        self.iterations = []
 
     def _same_sign(self, a, b):
         return a * b > 0
 
 
-def example_function(x):
+def minimum_angle_example(x):
     y = 180.0 - 123.0 - x
     return 3 * (math.cos(x) / math.sin(x)**2) - 2 * ((math.cos(y)) / math.sin(y)**2)
 
 
 if __name__ == '__main__':
     solver = NumericalMethod()
-    solver.bisection(example_function)
-    solver.print_csv('biseccion.csv')
-    solver.bisection(example_function, tolerance=1e-6)
-    solver.print_csv('biseccion-6dec.csv')
-    solver.muller(example_function)
+    solver.bisection(minimum_angle_example)
+    solver.formated_print()
+    solver.bisection(minimum_angle_example, tolerance=1e-6)
+    solver.formated_print()
+    solver.muller(minimum_angle_example)
     solver.print_csv('muller.csv', method='muller')
     print("Done!")
