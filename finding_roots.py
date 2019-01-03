@@ -21,7 +21,7 @@ class NumericalMethod:
             mid = (xr + xl) / 2.0
             func_mid = func(mid)
             row += [mid, func_mid]
-            if self._same_sign(func_left, func_mid):
+            if self.same_sign(func_left, func_mid):
                 xl = mid
             else:
                 xr = mid
@@ -83,9 +83,9 @@ class NumericalMethod:
             row = [xl, xr, yl, yr]
             xprime = self._regula_root(func, xl, xr)
             yprime = func(xprime)
-            if not self._same_sign(yprime, yr):
+            if not self.same_sign(yprime, yr):
                 xl = xprime
-            elif not self._same_sign(yprime, yl):
+            elif not self.same_sign(yprime, yl):
                 xr = xprime
             else:
                 print('Found same sign interval, breaking')
@@ -135,6 +135,10 @@ class NumericalMethod:
             print(rows.format(*([i] + row)))
 
     @staticmethod
+    def same_sign(a, b):
+        return a * b > 0
+
+    @staticmethod
     def _regula_root(func, xl, xr):
         yr = func(xr)
         yl = func(xl)
@@ -174,9 +178,6 @@ class NumericalMethod:
 
     def _clean_list(self):
         self.iterations = []
-
-    def _same_sign(self, a, b):
-        return a * b > 0
 
 
 def minimum_angle_example(x):
